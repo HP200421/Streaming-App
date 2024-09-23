@@ -20,4 +20,5 @@ class ApiError extends Error {
   }
 }
 
+// name export
 export { ApiError };
