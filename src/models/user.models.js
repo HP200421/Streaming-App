@@ -19,7 +19,7 @@ const userSchema = new Schema(
       unique: true,
       trim: true,
     },
-    fullname: {
+    fullName: {
       type: String,
       required: true,
       trim: true,
@@ -52,5 +52,48 @@ const userSchema = new Schema(
   },
   { timestamps: true }
 );
+
+userSchema.pre("save", async function (next) {
+  // We have to check if password is modified or not
+  // then only it will get encrypted
+  if (this.isModified("password")) {
+    this.password = bcrypt.hash(this.password, 10);
+  }
+  next();
+});
+
+userSchema.methods.isPasswordCorrect = async function (password) {
+  // It takes two arguments plain text and encrypted text
+  return await bcrypt.compare(password, this.password);
+};
+
+// Stateless
+userSchema.methods.generateAccessToken = async function () {
+  return jwt.sign(
+    {
+      _id: this._id,
+      email: this.email,
+      username: this.username,
+      fullName: this.fullName,
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    {
+      // expires in is always in object
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+    }
+  );
+};
+// Statefull
+userSchema.methods.generateRefreshToken = async function () {
+  jwt.sign(
+    {
+      _id: this._id,
+    },
+    process.env.REFRESH_TOKEN_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+    }
+  );
+};
 
 export const User = mongoose.model("User", userSchema);
