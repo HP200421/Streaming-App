@@ -23,4 +23,13 @@ app.use(express.static("public"));
 
 app.use(cookieParser());
 
+// routes import
+import userRouter from "./routes/user.routes.js";
+
+// routes declaration
+// app.get("/userLogin") cant use this apporach
+// Now we have to get things done through middleware
+
+app.use("/api/v1/users", userRouter);
+// http://localhost:8000/api/v1/users/register
 export default app;
