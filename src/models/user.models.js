@@ -45,9 +45,8 @@ const userSchema = new Schema(
       required: [true, "Password is required"],
     },
     refreshToken: {
+      // Can't keep unique and required for refreshToken because it is giving me errors
       type: String,
-      unique: true,
-      required: true,
     },
   },
   { timestamps: true }
