@@ -4,6 +4,29 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.models.js";
 import { uploadCloudinary } from "../utils/cloudinary.js";
 
+// user id is important for generating tokens
+const generateAccessAndRefreshTokens = async (userId) => {
+  try {
+    // first we have to find the user from database
+    const user = await User.findById(userId);
+    // this two are methods which can be access through user instance
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+
+    // validateBeforeSave: false we are by passing the schema validations
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError(
+      500,
+      "Something went wrong while generating refresh and access token"
+    );
+  }
+};
+
 export const registerUser = asyncHandler(async (req, res) => {
   // Steps to follow
   // 1. Get user details from frontend
@@ -17,7 +40,7 @@ export const registerUser = asyncHandler(async (req, res) => {
   // 9. Return response
 
   const { username, fullName, email, password } = req.body;
-  console.log("Username: ", username);
+  // console.log("Username: ", username);
 
   // We have to do this for all fields
   // if (fullName === "") {
@@ -83,4 +106,64 @@ export const registerUser = asyncHandler(async (req, res) => {
   return res
     .status(201)
     .json(new ApiResponse(200, createdUser, "User registered successfully"));
+});
+
+export const loginUser = asyncHandler(async (req, res) => {
+  // Steps to follow
+  // 1. Get username or email and password from frontend
+  // 2. Find user in database
+  // 3. If user is available then check password is correct or not
+  // 4. Generate access and refresh token
+  // 5. Send with cookies (Secure Cookies)
+  // 6. Send response
+
+  const { username, email, password } = req.body;
+
+  if (!(username || email)) {
+    throw new ApiError(400, "Username or email is required");
+  }
+
+  // returns first entry which has match
+  // in this user we dont have any refreshToken
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User dose not exist");
+  }
+
+  const isPasswordValid = await user.isPasswordCorrect(password);
+
+  if (!isPasswordValid) {
+    throw new Error(401, "Invalid user credentials");
+  }
+
+  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
+    user._id
+  );
+
+  // This is optinal step if we have to make database call or not
+  // in this loggedInUser we have access to refreshToken
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  //cookie("key", value, options)
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        { user: loggedInUser, accessToken, refreshToken }, // when user wants to set token on its own and in mobile applications we cant set cookies
+        "User logged in successfully"
+      )
+    );
 });
