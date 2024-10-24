@@ -167,3 +167,32 @@ export const loginUser = asyncHandler(async (req, res) => {
       )
     );
 });
+
+export const logoutUser = asyncHandler(async (req, res) => {
+  // Steps to follow
+  // 1. Know the user that means find the user => verifyJWT and insert user info in req
+  // 2. Remove the refresh token from database
+  // 3. Clear the cookies
+
+  // dont need to store its reference as it we are not goinh to pass it with response
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: { refreshToken: undefined },
+    },
+    {
+      new: true, // new updated response
+    }
+  );
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged out successfully"));
+});
