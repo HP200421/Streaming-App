@@ -10,8 +10,8 @@ const generateAccessAndRefreshTokens = async (userId) => {
     // first we have to find the user from database
     const user = await User.findById(userId);
     // this two are methods which can be access through user instance
-    const accessToken = user.generateAccessToken();
-    const refreshToken = user.generateRefreshToken();
+    const accessToken = await user.generateAccessToken();
+    const refreshToken = await user.generateRefreshToken();
 
     user.refreshToken = refreshToken;
 
@@ -119,7 +119,7 @@ export const loginUser = asyncHandler(async (req, res) => {
 
   const { username, email, password } = req.body;
 
-  if (!(username || email)) {
+  if (!username && !email) {
     throw new ApiError(400, "Username or email is required");
   }
 
@@ -136,12 +136,15 @@ export const loginUser = asyncHandler(async (req, res) => {
   const isPasswordValid = await user.isPasswordCorrect(password);
 
   if (!isPasswordValid) {
-    throw new Error(401, "Invalid user credentials");
+    throw new ApiError(401, "Invalid user credentials");
   }
 
   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
     user._id
   );
+
+  // console.log("accessToken: ", accessToken);
+  // console.log("refreshToken: ", refreshToken);
 
   // This is optinal step if we have to make database call or not
   // in this loggedInUser we have access to refreshToken
@@ -162,7 +165,7 @@ export const loginUser = asyncHandler(async (req, res) => {
     .json(
       new ApiResponse(
         200,
-        { user: loggedInUser, accessToken, refreshToken }, // when user wants to set token on its own and in mobile applications we cant set cookies
+        { user: loggedInUser, accessToken, refreshToken }, // when user wants to set token on its own and in mobile applications we can't set cookies
         "User logged in successfully"
       )
     );
@@ -174,7 +177,7 @@ export const logoutUser = asyncHandler(async (req, res) => {
   // 2. Remove the refresh token from database
   // 3. Clear the cookies
 
-  // dont need to store its reference as it we are not goinh to pass it with response
+  // dont need to store its reference as it we are not going to pass it with response
   await User.findByIdAndUpdate(
     req.user._id,
     {
